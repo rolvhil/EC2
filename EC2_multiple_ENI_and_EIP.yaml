@@ -1,0 +1,215 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cfn create instance with multiple ENI and EIP attachment
+
+Parameters:
+  subnet:
+    Description: subnet
+    Default: "subnet-0e10fc50ef2192eab"
+    Type: String
+
+  # Comment PrivateIpAddressX this part and Resource PrivateIpAddressX Attribute if you do not want a predefined Private Addresses
+
+  PrivateIpAddress0:
+    Description: PrivateIpAddress0
+    Default: "172.31.16.10"
+    Type: String
+
+  PrivateIpAddress1:
+    Description: PrivateIpAddress1
+    Default: "172.31.16.11"
+    Type: String
+
+  PrivateIpAddress2:
+    Description: PrivateIpAddress2
+    Default: "172.31.16.12"
+    Type: String
+
+  PrivateIpAddress3:
+    Description: PrivateIpAddress3
+    Default: "172.31.16.13"
+    Type: String
+
+  sg:
+    Description: security group
+    Default: "sg-09f33f176e8fc0207"
+    Type: String
+
+  id:
+    Description: key id
+    Default: "id_rsa.pub"
+    Type: String
+
+  ami:
+    Description: ami
+    Default: "ami-0d51a78a0a50b60e1"
+    Type: String
+
+  InstanceType:
+    Type: String
+    Default: c5.xlarge
+    Description: Instance type to use. Number of ENI attachment depends on the Instance type
+    AllowedValues:
+      - c5.large
+      - c5.xlarge
+      - c5.large
+
+Resources:
+  MyEIP0:
+    Type: AWS::EC2::EIP
+    DependsOn: Ec2Instance
+    Properties:
+      Domain: vpc
+
+  MyEIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  MyEIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  MyEIP3:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  myENI0:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress0"
+      GroupSet:
+        - !Ref "sg"
+
+  myENI1:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress1"
+      GroupSet:
+        - !Ref "sg"
+
+  myENI2:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress2"
+      GroupSet:
+        - !Ref "sg"
+
+  myENI3:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress3"
+      GroupSet:
+        - !Ref "sg"
+
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: "ami"
+      InstanceType:
+        Ref: "InstanceType"
+      KeyName:
+        Ref: "id"
+      NetworkInterfaces:
+        - NetworkInterfaceId:
+            Ref: "myENI0"
+          DeviceIndex: "0"
+
+  NetworkInterfaceAttachment1:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: "Ec2Instance"
+      NetworkInterfaceId:
+        Ref: "myENI1"
+      DeviceIndex: 1
+
+  NetworkInterfaceAttachment2:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: "Ec2Instance"
+      NetworkInterfaceId:
+        Ref: "myENI2"
+      DeviceIndex: 2
+
+  NetworkInterfaceAttachment3:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: "Ec2Instance"
+      NetworkInterfaceId:
+        Ref: "myENI3"
+      DeviceIndex: 3
+
+  EIPAssociation0:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt MyEIP0.AllocationId
+      NetworkInterfaceId:
+        Ref: "myENI0"
+
+  EIPAssociation1:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt MyEIP1.AllocationId
+      NetworkInterfaceId:
+        Ref: "myENI1"
+
+  EIPAssociation2:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt MyEIP2.AllocationId
+      NetworkInterfaceId:
+        Ref: "myENI2"
+
+  EIPAssociation3:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt MyEIP3.AllocationId
+      NetworkInterfaceId:
+        Ref: "myENI3"
+
+Outputs:
+  PublicIP0:
+    Description: Primary Public IP
+    Value:
+      Ref: "MyEIP0"
+
+  PublicIP1:
+    Description: Secondary Public IP
+    Value:
+      Ref: "MyEIP1"
+
+  PublicIP2:
+    Description: Third Public IP
+    Value:
+      Ref: "MyEIP2"
+
+  PublicIP3:
+    Description: Fourth Public IP
+    Value:
+      Ref: "MyEIP3"
