@@ -5,7 +5,7 @@ Description: Cfn create instance with multiple ENI and EIP attachment
 Parameters:
   subnet:
     Description: subnet
-    Default: "subnet-0e10fc50ef2192eab"
+    Default: "subnet-0e10fc50ef21xxxxx"
     Type: String
 
   # Comment PrivateIpAddressX this part and Resource PrivateIpAddressX Attribute if you do not want a predefined Private Addresses
@@ -32,7 +32,7 @@ Parameters:
 
   sg:
     Description: security group
-    Default: "sg-09f33f176e8fc0207"
+    Default: "sg-09f33f176e8fxxxxx"
     Type: String
 
   id:
