@@ -1,0 +1,147 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bootstrap EC2 Ubuntu instance based on Tag Key:Name <Value>. Bootstrap includes interface Bridge, GRE Tunnel
+
+Parameters:
+
+  TargetInstanceTag:
+    Description: Tage key:Name tag  where SSM Document will be applied. All systems manager managed instances with this tag will updated a new boot
+    Type: String
+    Default: ''
+
+Resources:
+  SSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Tags:
+        - Key: SSMDocument
+          Value: !Ref "TargetInstanceTag"
+      Content: Yaml
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: Bootstrap Instance
+        parameters:
+          allowDowngrade:
+            default: 'false'
+            description: "(Optional) Allow the Amazon SSM Agent service to be downgraded to
+              an earlier version. If set to false, the service can be upgraded to newer versions
+              only (default). If set to true, specify the earlier version."
+            type: String
+            allowedValues:
+              - 'true'
+              - 'false'
+        mainSteps:
+          - action: aws:updateSsmAgent
+            name: updateSSMAgent
+            inputs:
+              agentName: amazon-ssm-agent
+              source: https://s3.eu-central-1.amazonaws.com/amazon-ssm-eu-central-1/ssm-agent-manifest.json
+              allowDowngrade: "{{ allowDowngrade }}"
+          - action: aws:runShellScript
+            name: Bootstrapping
+            inputs:
+              runCommand:
+                - "#!/bin/bash"
+                - date
+                - sudo dhclient ens6
+                - echo '===Setup bridge==='
+                - sudo apt-get install -y bridge-utils
+                - sudo apt-get install -y dialog apt-utils
+                - sudo apt-get install -y awscli
+                - sudo brctl addbr dc-net
+                - sudo brctl stp dc-net on
+                - sudo ip link add vxlan1 type vxlan id 1 dstport 8472 dev ens6
+                - sudo ip link set up dev vxlan1
+                - sudo brctl addif dc-net vxlan1
+                - sudo ifconfig dc-net
+                - sudo ifconfig dc-net 10.92.11.2/24
+                - echo '===Setup IP forward and sctp module==='
+                - sudo -H -u ssm-user  bash -c "sudo -i"
+                - echo 1 > /proc/sys/net/ipv4/ip_forward
+                - sysctl -w net.ipv4.ip_forward=1
+                - sysctl -w net.ipv4.conf.all.rp_filter=2
+                - modprobe nf_conntrack_proto_sctp
+                - echo "===setrouter-onevxlan (below are the workers' IPs)==="
+                - sudo bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst 10.0.76.154 self permanent
+                - sudo bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst 10.0.76.160 self permanent
+                - sudo bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst 10.0.77.71 self permanent
+                - sudo bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst 10.0.76.188 self permanent
+                - echo "===Updating Routes for VIP addresses==="
+                - sudo ip route add 10.81.255.131/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.140/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.141/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.142/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.143/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.144/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.145/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.146/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.147/32 via 10.92.11.21 dev dc-net
+                - sudo ip route add 10.81.255.166/32 via 10.92.11.41 dev dc-net
+                - sudo ip route add 10.81.255.167/32 via 10.92.11.41 dev dc-net
+                - sudo ip route add 10.81.255.168/32 via 10.92.11.41 dev dc-net
+                - echo "===Updating APN pool routing on DCNATGW==="
+                - sudo ip route add 10.81.255.0/25 via 10.92.11.41 dev dc-net
+                - echo "===GRE Tunnel==="
+                - sudo dhclient ens7
+                - sudo ip tunnel add gre1 mode gre local 10.81.254.36 remote 10.81.126.196 ttl 255
+                - sudo ip addr add 10.81.126.205/31 dev gre1
+                - sudo ip link set gre1 up
+                - echo "===Routing for GRE tunnel==="
+                - sudo ip route add 10.81.126.196 via 10.81.254.33 dev ens7
+                - sudo ip route add 10.81.126.197 via 10.81.254.33 dev ens7
+                - echo "===Routing for IPs to go via GRE=="
+                - sudo ip route add 10.81.126.201 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.126.202 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.251.102 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.252.1 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.252.4 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.252.5 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.253.64/26 via 10.81.126.205 dev gre1
+                - sudo ip route add 10.81.253.128/26 dev gre1
+                - sudo ip route add 10.81.253.192/26 dev gre1
+                - sudo ip route add 10.85.193.136/29 dev gre1
+                - sudo ip route add 10.85.193.144/29 dev gre1
+                - sudo ip route add 10.85.193.152/29 dev gre1
+                - echo "===Iptables SNAT traffic to Public Address==="
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 3.121.123.194 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 3.65.173.255 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.191.146 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.163.11 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.234.144 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.158.194.121 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 8.8.8.8 -j SNAT --to 10.81.254.5
+                - echo "Bootstrap completed with return code $?"
+                - exit
+              finallyStep: true
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+    DeletionPolicy: Delete
+
+  BootstrapAssociation:
+    Type: AWS::SSM::Association
+    DependsOn: OutputBucket
+    Properties:
+      Name: !Ref "SSMDocument"
+      OutputLocation:
+        S3Location:
+          OutputS3BucketName: !Ref "OutputBucket"
+          OutputS3KeyPrefix: bootstrapoutput
+      Targets:
+        - Key: tag:Name
+          Values:
+            - !Ref "TargetInstanceTag"
+
+#for bootstrapping when ec2 instance reboots do this to the ec2 instance one time or optionally manually trigger runAssociation on systems manager everytime
+#type: aws configure
+#answer only the region and format
+#configure cron file
+#execute command and take note of the ssm association-id: aws ssm list-associations
+#type: sudo vi /etc/cron.d/bootsrap
+#enter this value and exit: @reboot ssm-user /usr/bin/aws ssm start-associations-once --association-id "replace_with_value_ssm_association_id"
