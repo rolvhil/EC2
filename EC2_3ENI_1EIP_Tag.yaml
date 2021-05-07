@@ -1,0 +1,296 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Provision EC2 instance on shared AWS Outposts subnet with 3 static ENIs and Key:Name Tag
+
+Parameters:
+  AmiId:
+    Description: AMI ID taken from SSM Parameter Store. Default value points to the Ubuntu 16.04 latest stable version
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    #Default: ami-0a86f18b52e547759
+    Default: '/aws/service/canonical/ubuntu/server/16.04/stable/current/amd64/hvm/ebs-gp2/ami-id'
+
+  InstanceType:
+    Description: Instance type available on AWS Outposts
+    Type: String
+    Default: c5.large
+    AllowedValues:
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.8xlarge
+      - m5.12xlarge
+      - m5.16xlarge
+      - m5.24xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.8xlarge
+      - c5.12xlarge
+      - c5.16xlarge
+      - c5.24xlarge
+      - r5.large
+      - r5.xlarge
+      - r5.2xlarge
+      - r5.4xlarge
+      - r5.8xlarge
+      - r5.12xlarge
+      - r5.16xlarge
+      - r5.24xlarge
+      - r5d.large
+      - r5d.xlarge
+      - r5d.2xlarge
+      - r5d.4xlarge
+      - r5d.8xlarge
+      - r5d.12xlarge
+      - r5d.16xlarge
+      - r5d.24xlarge
+      - g4dn.xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - g4dn.8xlarge
+      - g4dn.16xlarge
+      - g4dn.12xlarge
+      - i3en.large
+      - i3en.xlarge
+      - i3en.2xlarge
+      - i3en.3xlarge
+      - i3en.6xlarge
+      - i3en.12xlarge
+      - i3en.24xlarge
+
+  InstanceNameTag:
+    Description: Key:Name Tag value assigned on an instance
+    Type: String
+    Default: ''
+
+  subnet:
+    Description: Shared Subnetid from AWS Outposts (this subnet needs Internet access to download packages)
+    Type: String
+#    Default: "subnet-0e10fc50ef2192eab"
+    Default: "subnet-xxxxxxxxxxxxxxxxx"
+
+  keyid:
+    Description: keyid to be used on the instance
+    Default: "id_rsa.pub"
+    Type: String
+
+  sg:
+    Description: security group to be attched to the ENIs
+    Type: String
+#    Default: "sg-09f33f176e8fc0207"
+    Default: "sg-09f33f176e8fxxxxx"
+
+  ENI0Tag:
+    Description: Key:Name Tag for ENI0
+    Type: String
+    Default: "Main Interface"
+
+  ENI1Tag:
+    Description: Key:Name Tag for ENI1
+    Type: String
+    Default: "Second Interface"
+
+  ENI2Tag:
+    Description: Key:Name Tag for ENI2
+    Type: String
+    Default: "Third Interface"
+
+#Uncomment this part: PrivateIpAddressX and Resource myENIx.PrivateIpAddressX Attribute if you want predefined static IP address on you instance
+  PrivateIpAddress0:
+    Description: PrivateIpAddress0 - Primay IP address
+    Default: "172.31.16.10"
+    Type: String
+
+  PrivateIpAddress1:
+    Description: PrivateIpAddress1 - 2nd IP address
+    Default: "172.31.16.11"
+    Type: String
+
+  PrivateIpAddress2:
+    Description: PrivateIpAddress2 - 3rd IP Address
+    Default: "172.31.16.12"
+    Type: String
+
+Resources:
+  SSMInstanceRole:
+    Description: Role attached to the Instance for SSM
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - Key: Name
+          Value: DCNATGW Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - ssm.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/CloudWatchAgentServerPolicy'
+      Path: "/"
+      Policies:
+        # Inline policy
+        - PolicyName: "start-associations-once"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: ssm:StartAssociationsOnce
+                Resource: "*"
+
+  SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+        - Ref: SSMInstanceRole
+
+  myENI0:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress0"
+      GroupSet:
+        - !Ref "sg"
+      Tags:
+        - Key: Name
+          Value: !Ref "ENI0Tag"
+
+  myENI1:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress1"
+      GroupSet:
+        - !Ref "sg"
+      Tags:
+        - Key: Name
+          Value: !Ref "ENI1Tag"
+
+  myENI2:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: A nice description.
+      SourceDestCheck: 'false'
+      SubnetId:
+        Ref: "subnet"
+      PrivateIpAddress:
+        Ref: "PrivateIpAddress2"
+      GroupSet:
+        - !Ref "sg"
+      Tags:
+        - Key: Name
+          Value: !Ref "ENI2Tag"
+
+  MyEIP0:
+    Type: AWS::EC2::EIP
+    DependsOn: EC2Instance
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Ref "InstanceNameTag"
+
+ ################### INSTANCE #####################
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref "AmiId"
+      InstanceType: !Ref "InstanceType"
+      KeyName: !Ref "keyid"
+      DisableApiTermination: True
+      IamInstanceProfile: !Ref "SSMInstanceProfile"
+      Tags:
+        - Key: Name
+          Value: !Ref "InstanceNameTag"
+      NetworkInterfaces:
+        - NetworkInterfaceId:
+            Ref: "myENI0"
+          DeviceIndex: "0"
+ #modify the disc on the instance
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: '50'
+            DeleteOnTermination: 'false'
+            Encrypted: 'true'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update
+          sudo apt-get install language-pack-UTF-8
+
+  NetworkInterfaceAttachment1:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: "EC2Instance"
+      NetworkInterfaceId:
+        Ref: "myENI1"
+      DeviceIndex: 1
+
+  NetworkInterfaceAttachment2:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      InstanceId:
+        Ref: "EC2Instance"
+      NetworkInterfaceId:
+        Ref: "myENI2"
+      DeviceIndex: 2
+
+  EIPAssociation0:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt MyEIP0.AllocationId
+      NetworkInterfaceId:
+        Ref: "myENI0"
+
+Outputs:
+  PublicIP0:
+    Description: Primary Public IP
+    Value:
+      Ref: "MyEIP0"
+
+  ENI0:
+    Description: Primary Private IP
+    Value:
+      Ref: "myENI0"
+
+  ENI1:
+    Description: 2nd Private IP
+    Value:
+      Ref: "myENI1"
+
+  ENI2:
+    Description: 3rd Private IP
+    Value:
+      Ref: "myENI2"
+
+  SSMInstanceProfile:
+    Description: Instance Role to enable Systes Manager Session Manager
+    Value: !Ref "SSMInstanceProfile"
+
+
+
+
+
+
+
+
+
