@@ -104,12 +104,12 @@ Resources:
                 - sudo ip route add 10.85.193.144/29 dev gre1
                 - sudo ip route add 10.85.193.152/29 dev gre1
                 - echo "===Iptables SNAT traffic to Public Address==="
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 3.121.123.194 -j SNAT --to 10.81.254.5
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 3.65.173.255 -j SNAT --to 10.81.254.5
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.191.146 -j SNAT --to 10.81.254.5
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.163.11 -j SNAT --to 10.81.254.5
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.198.234.144 -j SNAT --to 10.81.254.5
-                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 18.158.194.121 -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
+                - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
                 - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 8.8.8.8 -j SNAT --to 10.81.254.5
                 - echo "Bootstrap completed with return code $?"
                 - exit
