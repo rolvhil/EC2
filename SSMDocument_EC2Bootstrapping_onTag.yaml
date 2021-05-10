@@ -139,9 +139,7 @@ Resources:
             - !Ref "TargetInstanceTag"
 
 #for bootstrapping when ec2 instance reboots do this to the ec2 instance one time or optionally manually trigger runAssociation on systems manager everytime
-#type: aws configure
-#answer only the region and format
 #configure cron file
 #execute command and take note of the ssm association-id: aws ssm list-associations
 #type: sudo vi /etc/cron.d/bootsrap
-#enter this value and exit: @reboot ssm-user /usr/bin/aws ssm start-associations-once --association-id "replace_with_value_ssm_association_id"
+#enter this value and exit: @reboot ssm-user /usr/bin/aws ssm start-associations-once --association-id "replace_with_value_ssm_association_id" --region eu-central-1
