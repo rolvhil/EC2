@@ -68,18 +68,16 @@ Parameters:
   subnet:
     Description: Shared Subnetid from AWS Outposts (this subnet needs Internet access to download packages)
     Type: String
-#    Default: "subnet-0e10fc50ef2192eab"
     Default: "subnet-xxxxxxxxxxxxxxxxx"
 
   keyid:
     Description: keyid to be used on the instance
+    Type: "AWS::EC2::KeyPair::KeyName"
     Default: "id_rsa.pub"
-    Type: String
 
   sg:
     Description: security group to be attched to the ENIs
-    Type: String
-#    Default: "sg-09f33f176e8fc0207"
+    Type: "AWS::EC2::SecurityGroup::Id"
     Default: "sg-09f33f176e8fxxxxx"
 
   ENI0Tag:
@@ -97,7 +95,7 @@ Parameters:
     Type: String
     Default: "Third Interface"
 
-#Uncomment this part: PrivateIpAddressX and Resource myENIx.PrivateIpAddressX Attribute if you want predefined static IP address on you instance
+#comment this part: PrivateIpAddressX and Resource myENIx.PrivateIpAddressX Attribute if you want dynamic IP address on your instance
   PrivateIpAddress0:
     Description: PrivateIpAddress0 - Primay IP address
     Default: "172.31.16.10"
@@ -136,7 +134,7 @@ Resources:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/CloudWatchAgentServerPolicy'
       Path: "/"
       Policies:
-        # Inline policy
+        # Inline policy to allow ssm start-associations-once cli
         - PolicyName: "start-associations-once"
           PolicyDocument:
             Version: 2012-10-17

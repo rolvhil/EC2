@@ -49,6 +49,7 @@ Resources:
                 - sudo apt-get install -y bridge-utils
                 - sudo apt-get install -y dialog apt-utils
                 - sudo apt-get install -y awscli
+                - sudo apt-get install -y jq
                 - sudo brctl addbr dc-net
                 - sudo brctl stp dc-net on
                 - sudo ip link add vxlan1 type vxlan id 1 dstport 8472 dev ens6
@@ -111,6 +112,9 @@ Resources:
                 - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
                 - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d <PublicIP> -j SNAT --to 10.81.254.5
                 - sudo iptables -t nat -I POSTROUTING -s 10.81.255.0/25 -d 8.8.8.8 -j SNAT --to 10.81.254.5
+                - value=`aws ssm list-associations --region eu-central-1 --association-filter-list "key=AssociationName,value=DCNATGW" | jq '.[]' | jq .[] | jq '.["AssociationId"]?'`
+                - sudo touch /etc/cron.d/bootsrap
+                - sudo echo "@reboot ssm-user /usr/bin/aws ssm start-associations-once --association-id $value --region eu-central-1" > /etc/cron.d/bootsrap  #this cli call ensures that the instance is reassociated with the ssmdocument on reboot
                 - echo "Bootstrap completed with return code $?"
                 - exit
               finallyStep: true
@@ -128,6 +132,7 @@ Resources:
     Type: AWS::SSM::Association
     DependsOn: OutputBucket
     Properties:
+      AssociationName: !Ref "TargetInstanceTag"
       Name: !Ref "SSMDocument"
       OutputLocation:
         S3Location:
@@ -138,8 +143,4 @@ Resources:
           Values:
             - !Ref "TargetInstanceTag"
 
-#for bootstrapping when ec2 instance reboots do this to the ec2 instance one time or optionally manually trigger runAssociation on systems manager everytime
-#configure cron file
-#execute command and take note of the ssm association-id: aws ssm list-associations
-#type: sudo vi /etc/cron.d/bootsrap
-#enter this value and exit: @reboot ssm-user /usr/bin/aws ssm start-associations-once --association-id "replace_with_value_ssm_association_id" --region eu-central-1
+
